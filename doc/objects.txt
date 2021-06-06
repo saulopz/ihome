@@ -1,0 +1,33 @@
+
+      1 - Sensor Presence         (all)
+      2 - Sensor Sound/voice      (all)
+      3 - Sensor Lightness        (Ligth)
+      4 - Sensor Temperature      (Air-Condicionning, Ventilator)
+      5 - Sensor Whater           (Door/Window)
+      6 - Sensor Grease (gordura) (Extractor)
+
+v    50 - Door
+v    51 - Window
+V    52 - Light
+v    53 - Stove (fogao)
+v    54 - Freezer
+v    55 - Microwave
+     56 - Coffe Maker
+v    57 - Extractor (exaustor)
+v    58 - TV
+     59 - Cable
+v    60 - Video K7
+v    61 - DVD
+v    62 - Sound Stereo
+V    63 - Computer
+v    64 - Air-condicionning
+v    65 - Ventilator
+v    66 - Showwer
+V    67 - Clothes wash
+     68 - Clothes dryer
+
+
+
+     paredes
+     portas
+     janelas

@@ -1,0 +1,185 @@
+LEIAME - IHOME (Casa Inteligente
+  -----------------------------------------------------------------------
+
+(0) - OBSERVAÇÕES
+
+Procure ler bem o manual antes de experimentar o protótipo. Em caso de
+dúvidas ou sugestões, envie um email para saulopz@inf.ufsc.br.
+
+
+(1) - O QUE É O IHOME
+
+O IHome é um protótipo baseado na dissertação de mestrado em ciência da
+computação de Saulo Popo Zambiasi, sobre Ambientes Inteligentes a ser
+defendida na UFSC, Universidade Federal de Santa Catarina. O protótipo foi
+desenvolvido baseado nas teorias da Inteligência Artificial Distribuída,
+sistemas multiagentes.
+
+
+(2) - ONDE POSSO BAIXAR O PROGRAMA
+
+O protótipo ihome, o editor de sprites e o editor de mapas estão, no momento,
+situados em:
+
+	http://rexlab.inf.ufsc.br/~saulopz/ihome/
+
+O pacote pode ser baixado para experimentação e testes. Com certeza, o
+protótipo estará propenso a falhas. Este protótipo é apenas uma caricatura
+da idéia principal sobre ambientes inteligentes e alguns pontos foram escolhidos
+para testar em sua implementação.
+
+
+(3) - ARQUIVOS
+
+O arquivo ihome_bin-11_08_2002.zip contém os seguintes arquivos:
+
+	ihome.exe    - Executável do protótipo.
+	edhmap.exe   - Executável do editor de mapas.
+	edsprite.exe - Executável do editor de sprites.
+	home.hmp     - Um exemplo de mapa.
+	sprites.img  - Um exemplo de arquivo de imagens, que está sendo usado
+			pelo home.hmp
+	sdl.dll      - Biblioteca gráfica (Sample Direct Layer - www.libsdl.org)
+
+
+(4) - COMO USAR
+
+O protótipo está distribuido em três partes, o editor de sprites, o editor de
+mapas e o próripo protótipo de execução do mapa.
+
+
+(4.1) EDITOR DE SPRITES (EDSPRITE.EXE)
+
+O editor de sprites (edsprite.exe) é um aplicativo para criar ou editar os
+objetos que estarão disponíveis no mapa. Você pode criar novos arquivos ou
+editar os já existentes.
+
+O Editor suporta apenas 16 cores. Em futuras versões, possívelmente posso
+acrescentar o suporte a um número maior de cores, mas no momento é o que temos.
+
+No protótipo, foram definidos 19 agentes ativos, entre eles porta, janela, Luz,
+Fogão, Geladeira, Microondas, Cafeteira, Exaustor, TV, Cabo (tv a cabo), Video k7,
+DVD, Som, Computador, Ar condicionado, Ventilador, Chuveiro, Lava de roupas,
+Secadora de roupas, e 2 elementos inativos, sendo eles mesa e parede. É importante
+criar ao menos um sprite para cada um dos elementos acima.
+
+Cada Objeto ativo pode ter até 6 sprites. Sendo que o nome do sprite pode ter até
+cinco caractéres, mais o ponto e mais o tipo dele.
+
+Exemplo: VIDEO.0, TV.3, GELAD.9
+
+O tipo corresponde de um número de 0 á 5 e referenciam-se à:
+
+	0 - Desligado, virado para a esquerda
+	1 - Desligado, virado para a direita
+	2 - Ligado, virado para a esquerda, etapa 1
+	3 - Ligado, virado para a direita, etapa 1
+	4 - Ligado, virado para a esquerda, etapa 2
+	5 - Ligado, virado para a direita, etapa 2
+
+A etapa 1 e etapa 2 servem para dar a impressão de movimentação ou funcionamento à
+alguns objetos que se achar interessante. Os sprites vão ficar se alterando entre
+os sprites da etapa 1 e etapa 2 se o objeto estiver ligado.
+
+Caso você não tenha criado os sprites suficientes para colocar no sistema, utilize
+os já existentes no arquio SPRITES.IMG. Se você não fizer direito, pode dar um erro
+ao trabalhar no protótipo e o programa pode abortar.
+
+
+(4.2) EDITOR DE MAPAS (EDHMAP.EXE)
+
+O Editor de mapas (edhmap.exe) é um aplicativo para criar novos mapas, ambientes,
+para se usar no ihome. Você pode criar novos arquios ou editar os existentes.
+
+Antes de se editar um novo mapa, é necessário que escolha-se o arquivo de imagens
+a ser usado, assim como selecionar cada imagem para seu correspondente objeto ativo
+ou inatio no ambiente. Caso contrário, o ambiente pode não funcionar. Outra observação
+importante é que o protótipo pode ter apenas uma pessoa, devido a limitações no
+protótipo. Porém, na modelagem é prevista a presença de mais de uma pessoa e a
+identificação de cada pessoa no ambiente.
+
+O Editor de mapa é separado em duas partes. A primeira é a montagem do ambiente e
+a segunda é a setorização. A edição do mapa em sí, resume-se em selecionar os objetos
+e os colocar no ambiente. A setorização é a separação dos cômodos, ou seja, o que vai
+ser separado para o controle dos agentes separadamente. Isto possibilita separar uma
+sala da cozinha, do quarto, da área fora da casa, etc.
+
+A separação dos setores é uma parte muito importante, pois cada setor irá ter um
+conjunto de sensores, sendo eles o sensor de presença, voz, luz, temperatura, água e
+gordura.
+
+
+(4.3) PROTOTIPO DA CASA INTELIGENTE (IHOME.EXE)
+
+O protótipo da casa inteligente (ihome.exe) é um aplicativo para simular um ambiente
+inteligente utilizando inteligência artificial distribuída, onde cada elemento ativo
+será um agente em um ambiente multi agentes. O funcionamento do ambiente é baseado
+na troca de mensagens entre os agentes.
+
+Para movimentar a pessoa no ambiente, basta clicar com o botão esquerdo do mouse
+sobre o local onde quer que a pessoa vá. Para selecionar um objeto no ambiente para
+visualizar seu estado atual, basta clicar com o botão direito do mouse sobre o objeto
+em questão.
+
+O Ambiente de execução está dividido em 3 partes, o mapa (ambiente), a janela de estado
+de objetos e uma janela de comandos.
+
+
+(4.3.1) JANELA DE COMANDOS
+
+A janela de comandos serve para configurar algumas informações do ambiente ou para
+simular um comando de voz da pessoa. O comando de voz é enviado diretamente ao agente
+de sensor de voz que avalia a informaçõa e envia ao seu gerente.
+
+COMANDOS DE CONFIGURAÇÃO DO SISTEMA
+
+CHUVA - Começa a simulação de uma chuva no ambiente.
+LIMPO - Para de chover.
+NOITE - Escureçe.
+DIA   - Amanhece.
+
+COMANDOS DE VOZ
+
+HOME - Serve para que todos os objetos da casa inteira sejam afetados pelo
+	comando.
+
+SETOR XX - Serve para que os objetos do setor XX sejam afetados pelo comando.
+	Se for o setor em que a pessoa se encontra, apenas omite esse comando.
+
+NIVEL1 XX - Configura a primeira variável do objeto para XX. Esse elemento
+	poderia ser considerado como canal no caso de televisão.
+
+NIVEL2 XX - Configura a segunda variável do objeto para XX. Esse elemento
+	poderia ser considerado como o volume no caso da televisão.
+
+[OBJETO] - Informa o objeto na qual quer se afetar com o comando.
+
+DORMIR - Pede-se que tal setor, ou o setor atual, ou a casa inteira entre
+	em estado de dormir.
+
+ACORDAR - Pede-se que tal setor ou o setor atual, ou a casa inteira entre
+	no estado acordado. Voltando os agentes a funcionar exatamente como
+	estavam antes de entrarem em estado de dormir.
+
+TRAVAR - Pede-se que tal setor ou o setor atual, ou a casa inteira entre
+	no estado travado, ou seja, os agentes não vão mudar de estado.
+
+DESTRAVAR - Desabilita o comando TRAVAR.
+
+Exemplos:
+
+	ligar tv - liga a televisao
+	ligar tv nivel1 03 nivel2 50 - liga a tv no canal3 e volume 50%
+	casa abrir janela - abre todas as janelas da casa
+	setor 04 abrir porta - abre a porta do setor 4
+	dormir - faz o setor onde a pessoa se encontra entrar em estado de dormir
+	casa acordar - faz a casa sair do estado de dormir
+
+Observação: Para saber o nome do objeto, basta clicar com o botão direito sobre
+o objeto na qual quer se dar o comando de voz.
+
+  -----------------------------------------------------------------------
+(c) 2002 Saulo Popov Zambiasi
+	http://www.rexlab.inf.ufsc.br/~saulopz/
+(c) RExLab - Laboratório de Experimentação Remota
+	http://rexlab.inf.ufsc.br/

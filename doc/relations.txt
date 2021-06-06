@@ -1,0 +1,87 @@
+      1 - Sensor Presence         (all)
+      2 - Sensor Sound/voice      (all)
+      3 - Sensor Lightness        (Ligth)
+      4 - Sensor Temperature      (Air-Condicionning, Ventilator)
+      5 - Sensor Whater           (Door/Window)
+      6 - Sensor Grease (gordura) (Extractor)
+
+     50 - Door
+     51 - Window
+     52 - Light
+     53 - Stove (fogao)
+     54 - Freezer
+     55 - Microwave
+     56 - Coffe Maker
+     57 - Extractor (exaustor)
+     58 - TV
+     59 - Cable
+     60 - Video K7
+     61 - DVD
+     62 - Sound Stereo
+     63 - Computer
+     64 - Air-condicionning
+     65 - Ventilator
+     66 - Showwer
+     67 - Clothes wash
+     68 - Clothes dryer
+
+
+OK - Sensors
+
+   sente - all
+   funcao
+   - envia informacoes de atualizacao
+   - se requisitado envia informacoes para solicitante
+
+
+OK - Stove - Microwave - Coffe Maker - Computer
+     Showwer - Clothes wash - clothes dryer
+
+   obedece - voice
+
+
+OK - Light
+
+   obedece - voice
+   sente   - presence, lightness
+   funcao
+   - if presence[1] and lightness[0] then light[1]
+
+OK - Door - Window
+
+   obedece  - voice, air-conditionning
+   sente    - whater
+   funcao
+   - if whater[1] then [0]
+
+OK - Extractor
+
+   obedece - voice
+   sente   - grease
+   funcao
+   - if grease[1] then [1]
+
+OK - Air-Conditionning
+
+   obedece  - voice
+   sente    - temperature
+   pesquisa - doors, windows, ventilator
+
+OK - Ventilator
+
+   obedece  - voice
+   sente    - temperature, presence
+   pesquisa - doors, windows, Air-conditionning
+
+OK - TV - Cable - Stereo
+
+   obedece  - voice
+   sente    - presence
+   pesquisa - Same
+   funcao
+   - if presence[1] and [any]TV was[1]
+
+OK - Video K7 - DVD
+   obedece - voice
+   funcao
+   - if turnned on, then set TV to video channel

@@ -1,0 +1,1000 @@
+ALPGraph V1.5.0
+For Delphi+WDOSX (DOS), Delphi+SDL (Win32) and Kylix+SDL (Linux)
+(c) 2001,2002 László Agócs (alp@dwp42.org)
+
+Under Win32 & Linux this uses SDL 1.2.3 (http://libsdl.org)
+VESA 1.X code was taken from Michael Tippach's VBE.PAS which comes with WDOSX
+Some code comes from Michael's CRT unit
+Mouse drawing code in WDOSX version was taken from SDL
+
+alpgraph homepage: http://www.dwp42.org/bazaar/ag
+http://michael.tippach.bei.t-online.de/wdosx => official WDOSX site
+
+First of all, my English knowledge needs to be improved...
+
+What's this?
+************
+This wants to be a multi-platform Object Pascal library.
+At the moment DOS (through Delphi+WDOSX) and Win32 (through Delphi+SDL) and
+Linux (through Kylix+SDL) are supported. It contains some graphics, keyboard,
+timer, mouse routines. As of version 0.30, 16 and 32 bpp modes are supported
+too. (if only a 24 bpp mode is available, it will be converted from 32 bpp to
+24 bpp in real time when refreshing the screen, this is slow!)
+Under DOS VESA 1.2 and 2.0 are both supported (bankswitched (+PMI), LFB)
+Note that in Windows NT/2K LFB modes won't be available even if your card
+supports them. (because mapping of physical memory will fail)
+
+Okay, in fact the Win32 and Linux version are just another layer over SDL.
+Everything that applies to the Win32 version is also true for Linux.
+
+How to use it?
+**************
+There are 3 units: alpgraph, ag_wdosx, ag_sdl
+You must include 'alpgraph' and ONE of the two others in your MAIN PROGRAM.
+If your program uses units which use alpgraph functions, the unit 'alpgraph'
+must be included in the uses clause of those units too. (but only that one!)
+The EXEs created with the Win32 versions require SDL.DLL.
+(the SDL.DLL included here is version 1.2.3 and is compressed with UPX 1.20)
+Executables compiled for Linux require the SDL binary runtime (the development
+package is not needed, not even for development).
+
+alpgraph uses four units of DWPL (needs v1.2+). These are WDosInterrupts,
+WDosDpmi, WDosPorts, WDosCallbacks. They are included in this package in
+wdos4.zip in case you don't want to use DWPL, but note:
+WDosInterrupts.pas is modified to not to use WDosSysUtils.
+(to avoid SysUtils vs WDosSysUtils problems when DWPL unit aliases are not set)
+You can delete wdos4.zip if you have downloaded and installed DWPL.
+NOTE: if you are using Delphi 6 be sure to get DWPL 2.0 or newer, but for D5
+you'll need DWPL 1.2.4.2.
+
+Using alpgraph with C++Builder is also possible, but only the Win32 (SDL)
+version was tested, as previously I had problems with using WDOSX and BCB
+together. To use alpgraph you need an obj and a hpp file for alpgraph.pas,
+ag_sdl.pas and sdl.pas. Simply type dcc32 -jphn ag_sdl.pas to generate the
+dcu, obj, hpp files for ag_sdl, etc. Then you need an import library for
+sdl.dll. Implib -f sdl.lib sdl.dll will do this. Do not use the -a option even
+it is needed for normal C/C++ programs built with BCB and SDL. To compile your
+first BCB+alpgraph application, compile it like this:
+bcc32 filename.cpp ag_sdl.obj alpgraph.obj sdl.obj vcl50.lib sdl.lib
+(Note that it will compile without sdl.obj too, but it will crash, so don't
+forget it! And of course you need to include the alpgraph.hpp header file.)
+OR in the IDE add ag_sdl.obj alpgraph.obj sdl.obj sdl.lib (and alternatively
+chars.obj and rle.obj) to your project (yes, alpgraph can be used together
+with the VCL (this applies to Delphi and Delphi+CLX too))
+NOTE: this will work only with Delphi 5 and C++Builder 5, other combinations
+(eg. D6+BCB5) won't work.
+
+Compatibility between WDOSX version and other libraries at www.dwp42.org:
+  1) Immo's WDOSX libraries/components V1.1 (DWPL 1.1)
+     ALPGRAPH DOES NOT SUPPORT THIS ANYMORE.
+  2) Newer versions of DWPL (1.2+)
+     Since we use WDosCallbacks too, they are totally compatible, of course
+     the mouse routines in DWPL may not work in graphics modes.
+     The timer subsystem is disabled if DWPL is detected, use the timer
+     component instead!
+  3) The WDosCrt unit which is part of DWPL 1.2
+     Keyboard routines in WDosCrt should work as before, since the old
+     keyboard handler is called by alpgraph. In fact RdKey in WDosCrt and
+     RKey in alpgraph do totally the same. If you are using mouse support in
+     WDosCrt you must turn it off with MouseOff BEFORE AGInit. You can
+     enable WDosCrt's mouse handling again by calling MouseOn AFTER AGDone.
+
+==============================================================================
+
+And here comes the detailed documentation of the functions, variables, types
+and constants of alpgraph.
+
+Constants:
+**********
+
+SHIFT_SHIFT = 1;  shift state flags: left or right shift is down
+SHIFT_CTRL  = 2;  shift state flags: left or right control is down
+SHIFT_ALT   = 4;  shift state flags: left or right alt is down
+SHIFT_CAPS  = 8;  shift state flags: caps lock is on (not down!)
+SHIFT_NUM   = 16; shift state flags: num lock is on (not down!)
+  constants for analyzing the result of GetShiftStates
+  for example if the left or right Alt key is down then (GetShiftStates and
+  SHIFT_ALT)<>0 is true
+
+MBUT_LEFT  = 1;
+MBUT_MID   = 2;
+MBUT_RIGHT = 4;
+  constants for checking mouse button state
+  ag_mouseb contains the current mouse button state, for example if the right
+  mouse button is down then (ag_mouseb and MBUT_RIGHT)<>0 is true
+
+colortab16:array [0..15] of word=...
+colortab32:array [0..15] of longint=...
+  these contain the RGB values of the 16 default colors (0=black, 1=blue,
+  2=green, ... , 14=yellow, 15=white) for 16 and 32 bpp video modes
+
+Types:
+******
+
+vgapalette=array [0..255] of record
+  r,g,b:byte;
+end;
+  The standard 768-byte VGA palette. The RGB values must be in range 0..63.
+
+PVidMem
+PVidMemW
+PVidMemL
+  Pointers to a linear memory area (eg. pvidmem(p)^[x+y*w]:=c)
+  PVidMem=^array [0..4M] of byte
+  PVidMemW=^array [0..4M] of word
+  PVidMemL=^array [0..4M] of longint
+
+TSurface is a record
+  w,h:integer;      width and height of the surface
+  transp:boolean;   is a transparent color set?
+  trans:longint;    transparent color (ignored if transp is false)
+  pitch:integer;    filled by Lock, the real length of one line in bytes
+                    (of course this is only valid in the pointer which was
+                    returned by Lock)
+  mustlock:boolean; [NEW IN V1.3.2] is Lock/Unlock needed for direct access?
+                    but without Lock under Win32 you have to use (with a
+                    typecast) the SDL_Surface structure (pointed by TSurface.p)
+
+  other fields are for internal use
+
+Variables:
+**********
+
+ag_inited:boolean;
+  This is set to true by AGInit and set to false by AGDone (it is False on
+  startup). AGInit will fail if this is True (no AGDone was called since last
+  AGInit) and AGDone will do nothing if this is False.
+
+mustquit:boolean;
+  Only used in Win32: set by Idle, it will be True if the close button of
+  the window is pressed. Your application should halt if this is True.
+
+isactive:boolean;
+  Only used in Win32: set by Idle, it is False if the application window
+  is iconified, otherwise True. (it won't be False if you just switch to
+  another window, eg. with alt+tab, the window must be minimized with the
+  minimize button!!!)
+
+screen:tsurface;
+  This surface is always available, you can draw onto it. The Update function
+  will display the content of this surface on the screen.
+
+screenpal:vgapalette;
+  Contains the current palette, which was set by SetPal
+
+rk_schar:boolean;
+  Set by RKey, True if a scancode was returned, False if an ASCII code
+
+keydown:array [0..255] of boolean;
+  Keyboard state, the index is the scancode. This is updated by Idle in Win32.
+
+ag_mousex,ag_mousey:integer;
+  mouse cursor position
+
+ag_mouseb:integer;
+  mouse button state
+  bit 0=left button, bit 1=middle button, bit 2=right button
+
+ag_mouseok:boolean;
+  Is a mouse available? If this is False, there's no mouse. It is always True
+  in Win32 (okay, I know that we should detect it under Windows too, but...)
+
+ag_mousevisible:boolean;
+  Is the mouse cursor visible?
+
+vid_banked:boolean=false;
+  Used only in DOS version. If it is true AFTER AGInit, a bankswitched VESA
+  mode is set. If it is set to true BEFORE AGInit, it forces to use only
+  bankswitched modes.
+
+vid_dblbuf:boolean;
+  Is double buffering enabled?
+
+vid_bpp:integer;
+  Number of bits per pixel. Can be 8 (256 color, palettized mode), 16, 32.
+
+vid_bypp:integer;
+  Number of bytes per pixel. Can be 1 (8bpp), 2 (16bpp), 4 (32bpp)
+
+vid_realbpp:integer;
+  Same as vid_bpp, except if only a 24 bpp mode was available instead of a
+  32 bpp one, in this case vid_bpp will be 32, this will be 24.
+
+vid_rshift,vid_gshift,vid_bshift:integer;
+  Position of R/G/B component in 16/32 bpp modes.
+  In these modes a color for other alpgraph functions is defined as a longint.
+  (eg. putpixel(x,y,$FFFFFF) in a 32bpp mode puts a white pixel at x,y)
+
+vid_rmask,vid_gmask,vid_bmask:longint;
+  Mask of R/G/B components in 16/32 bpp modes.
+
+vid_flags:integer;
+  Default value is 0, only used under Win32 at the moment, if the 0. bit is 1
+  then SDL_SetVideoMode will be called with the SDL_OPENGL flag set, and Update
+  will just call SDL_GL_SwapBuffers. So this enables the OpenGL support of SDL.
+  If you try to draw anything on the screen, it will crash, but mouse cursor
+  can be shown. Unfortunately the unit opengl does not come with Kylix so this
+  will work on Win32 only.
+
+vid_ogl:array [1..11] of longint;
+  This array is filled with -1 on startup, if a member is not -1 then the given
+  SDL+OpenGL attribute (specified by the index) is set to that value. Use the
+  AG_GL_xxx constants (which are of course same as SDL_GL_xxx).
+
+Functions:
+**********
+
+procedure ag_halt(msg:ansistring);
+  Writes a message to the console or shows a message box and then calls Halt.
+
+function AGInit(xs,ys,bpp:integer;caption:ansistring='sdlapp';full:boolean=true;
+ dblbuf:boolean=false):boolean;
+  Change video mode and initialize timer, keyboard, etc.
+  Normally this must be called at the beginning of your program and at the
+  end you should switch back to text mode (and stop timer, etc.) by calling
+  AGDone.
+  Under Win32 'caption' will be the title of the application window.
+  'full' specifies if the mode should be a fullscreen mode or not. Of course
+  under DOS this is ignored.
+  If 'dblbuf' is True in Win32 it will try to set a doublebuffering mode,
+  which means that you can use hardware flipping. Double buffering is only
+  available in full screen modes, when setting windowed modes, it is ignored.
+  At the moment the following video modes are supported:
+    320x200
+    640x480
+    800x600
+    1024x768
+  Supported color depths are: 8 (256 color), 16 (64K 5:6:5), 32 (16M A:8:8:8)
+  (15 bpp IS NOT SUPPORTED!)
+  In DOS version if only a 24 bpp mode is available instead of a 32 bpp one,
+  the Update procedure will do the conversion from 32 bpp to 24 bpp.
+
+function AddAGInitCallback(proc:TAGInitCallback):boolean;
+ type TAGInitCallback=procedure;
+  The given procedure will be called after AGInit (if it was successful).
+  If you have more than one then the first will be executed first, ...
+
+procedure ClearAGInitCallbacks;
+  Removes all functions from the queue.
+
+procedure AGDone;
+  This must be called at the end of your program. It switches back to text
+  mode. Of course if you want to change video mode you can call AGDone and
+  then AGInit again. (beginning from version 0.15, AGDone doesn't terminate
+  your program)
+
+procedure Update(x1,y1,x2,y2:integer);
+  Call this function to make the content of the 'screen' surface visible.
+  AT THE MOMENT USING THIS IN BANKSWITCHED MODES REFRESHES THE ENTIRE SCREEN!
+  The screen surface must be unlocked before calling Update.
+  If all four parameters are 0, the entire screen will be updated.
+  If double buffering is enabled: parameters are ignored, it waits for
+  vertical retrace before drawing and then IT SWAPS THE CONTENT OF THE DISPLAY
+  AND THE 'SCREEN' SURFACE. So 'screen' will be the old display content!
+  Even if you specify an area for update, NEVER ASSUME THAT ONLY THE GIVEN
+  AREA WILL BE UPDATED!
+
+procedure PUpdate(x1,y1,x2,y2:integer);
+  This is the non-swapping version of Update, this means that the content of
+  the 'screen' surface is preserved even when using double-buffered modes.
+  This procedure is of course slow when using double-buffering, only use this
+  when you don't know what setting will your code use. A good example for this
+  is PlayFLI, which must work in both modes. If double buffering is not set,
+  PUpdate(x1,y1,x2,y2) is same as Update(x1,y1,x2,y2).
+
+procedure WaitRetrace;
+  Waits for a vertical retrace, but only does real wait in WDOSX version,
+  in Win32 it simply does an AGDelay(1000 div 70).
+  (because SDL doesn't support this, but is planned for SDL 1.3)
+
+procedure _SetPal(var srf:TSurface;var pal:vgapalette);
+  In DOS this does nothing.
+  In Win32 this sets the palette of the surface to the specified palette.
+  During a blit if the palette of the two surfaces are not the same the
+  colors will be messed up.
+
+procedure SetPal(var pal:vgapalette);
+  Set a 768-byte VGA palette (RGB values must be in range 0..63)
+
+procedure SetColor(color:byte;r,g,b:byte);
+  Sets the RGB components of the given color in the current palette.
+
+procedure GetColor(color:byte;var r,g,b:byte);
+  Gives back the RGB components of the given color.
+  (just gives back the requested things from the screenpal array)
+
+function CalcRGB(r,g,b:byte):longint;
+  Gives back the color with the given components for the current pixel format.
+  In 16 bpp modes the components can be 8 bit too since only 5/6 bits will be
+  used.
+
+function GetR(col:longint):byte;
+function GetG(col:longint):byte;
+function GetB(col:longint):byte;
+procedure GetRGB(col:longint;var r,g,b:byte);
+  Get the Red/Green/Blue/all component(s) from the given color.
+
+function MkSurface(var srf:tsurface;w,h:integer;hw,t:boolean;trans:longint)
+ :boolean;
+procedure RmSurface(var srf:tsurface);
+  Create/destroy a surface in memory.
+  If 't' is True, 'trans' will be the transparent color of the surface.
+  'hw' is ignored in DOS, in Win32 if it's True we will try to create the
+  surface in the video memory. (to allow hardware accelerated blits)
+  8 bpp modes: The newly created surface will have the current palette.
+  >8bpp modes: The color depth of the new surface is always same as the color
+  depth of the 'screen' surface. (eg. in 16bpp video modes every surface will
+  be a 16bpp surface)
+  In the Win32 version the real length of one line will be always divisible
+  by 4, so you should use surface.pitch (which field is filled by Lock) when
+  calculating offsets.
+
+function AllocSurface(w,h,t:integer):TSurface;
+  Yes, the syntax of MkSurface is stupid so this function was added in version
+  1.4.0 to simplify it. Works like MkSurface, but always creates non-hardware
+  surface, if t=-1 then no transparent color will be set.
+  If result.w=0 then there was an error.
+
+function AllocHWSurface(w,h,t:integer):TSurface;
+  Like AllocSurface, but *tries* to create a hardware surface (which is in
+  video memory), if you are using the WDOSX version or there was an error
+  it creates a normal surface.
+
+procedure FreeSurface(var surface:TSurface);
+  Same as RmSurface.
+
+function Lock(var srf:tsurface):pvidmem;
+procedure Unlock(var srf:tsurface);
+  In fact these are only needed under Win32, in DOS Lock simply returns
+  srf.p and does a srf.pitch:=srf.w;
+  Lock returns a pointer to the surface content and sets srf.pitch to the
+  real line length of this memory area (in bytes).
+  Recursive locks are supported.
+
+procedure PutSurfaceData(var srf:tsurface;src:pvidmem;sbpp,spitch:integer);
+ overload;
+procedure PutSurfaceData(var srf:tsurface;src:pvidmem;sbpp,spitch:integer;
+ var pal:vgapalette);overload;
+procedure GetSurfaceData(var srf:tsurface;dest:pvidmem;dbpp,dpitch:integer);
+ overload;
+procedure GetSurfaceData(var srf:tsurface;dest:pvidmem;dbpp,dpitch:integer;
+ var pal:vgapalette);overload;
+  PutSurfaceData copies the content of 'src' to 'srf' but the scanline length
+  of 'src' can differ from srf.pitch.
+  GetSurfaceData copies the content of 'srf' to 'dest' but the scanline length
+  of 'dest' can differ from srf.pitch.
+  Of course if the two images have the same color depth no conversion is done,
+  data is only copied. The two overloaded versions of PutSurfaceData are
+  the same except that the one that has a 'pal' parameter supports conversion
+  from 8 bpp too.
+  The following conversions are possible at the moment:
+  24 -> 16, 24 -> 32, 16 -> 32, 32 -> 16 (put)
+  8 -> 16, 8 -> 32 (put) => in these cases it needs a palette too
+  16 -> 24, 32 -> 24, 16 -> 32, 32 -> 16 (get)
+  8 -> 16, 8 -> 24, 8 -> 32 (get) => in these cases it needs a palette too
+  Have a look at section 11 of the tutorial for more info.
+  IMPORTANT: if you want to do a color depth conversion which is not available,
+  the result will be undefined! (Put/GetSurfaceData will do nothing)
+
+procedure _24_to_16(src:p24;dest:pword;w,h,spitch,dpitch:integer);
+procedure _24_to_32(src:p24;dest:pbyte;w,h,spitch,dpitch:integer);
+procedure _16_to_24(src:pword;dest:p24;w,h,spitch,dpitch:integer);
+procedure _32_to_24(src:pbyte;dest:p24;w,h,spitch,dpitch:integer);
+procedure _32_to_16(src:pbyte;dest:pword;w,h,spitch,dpitch:integer);
+procedure _16_to_32(src:pword;dest:pbyte;w,h,spitch,dpitch:integer);
+procedure _8_to_16(src:pbyte;dest:pword;w,h,spitch,dpitch:integer;
+ var pal:vgapalette);
+procedure _8_to_24(src:pbyte;dest:p24;w,h,spitch,dpitch:integer;
+ var pal:vgapalette);
+procedure _8_to_32(src:pbyte;dest:pbyte;w,h,spitch,dpitch:integer;
+ var pal:vgapalette);
+  These are the color depth conversion routines.
+  They convert the image to which 'src' points to the given color depth and
+  the result is placed in 'dest'. Of course the 8-bit conversions need the
+  source palette too. Normally you don't need to call these procedures directly
+  since Get/PutSurfaceData call them. (note that these _XX_to_XX functions
+  don't work with surfaces, they need simple pointers to image data, if you
+  want to use surfaces, you must lock 'em & pass the pointer returned by Lock)
+
+  NOTE: all conversion routines assume that the pixel format is
+    - R:G:B 5:6:5 (rshift=11, gshift=5, bshift=0) for 16 bpp
+    - A:R:G:B 8:8:8:8 (rshift=16, gshift=8, bshift=0) for 32bpp
+
+  For pixel format independent code use vid_Xmask and vid_Xshift to get
+  the valid component information, and/or use CalcRGB and GetRGB/GetR/GetG/GetB
+  which use these variables.
+
+procedure blit(var src,dest:tsurface;x1,y1,x2,y2,dx,dy:integer);
+procedure blit_force_notrans(var src,dest:tsurface;x1,y1,x2,y2,dx,dy:integer);
+  Copies a rectangular area (x1,y1),(x2,y2) from src to dest to the (dx,dy)
+  position.
+  The difference is that blit_force_notrans will copy transparent pixels
+  even if a transparent color is set.
+
+procedure Idle;
+procedure IdleN(n:integer);
+  You must call this in your main loop (eg. every frame);
+  In IdleN(N) N is the number of SDL events to process (needed only in Win32)
+  Under DOS this clears the BIOS keyboard buffer (to prevent beeping) and
+  DRAWS THE MOUSE CURSOR!!!
+  So you must call this regularly to keep the cursor moving on the screen!
+  Under Win32 Idle processes SDL events.
+
+function RKey:char;
+  Wait until a key is pressed. (calls Idle while waiting)
+  If rk_schar=true after calling it then the result is a scancode
+  If rk_schar=false it is an ASCII code
+  It gives a DOS-like key in Win32 too.
+  The Win32 version if very buggy:
+    numeric keypad keys ignore numlock state, they assume numlock is OFF
+    Shift+F1..F10 and Ctrl+F1..F10 are not supported
+    Plus there could be a lot of key combinations which are ignored
+    And of course RKey ignores keyboard language settings.
+
+function KeyPress:boolean;
+  Returns True if a key is available in the keyboard buffer. Note that under
+  DOS Idle clears it.
+
+function GetShiftStates:byte;
+  Returns the state of shift, alt, contol keys
+  (see SHIFT_XXX constants)
+
+function InstallInt(proc:TTimerProc;speed:integer):boolean;
+procedure RemoveInt(proc:TTimerProc);
+ type TTimerProc=function(interval:longint;param:pointer):longint;cdecl;
+  Install/remove a timer procedure
+  The specified procedure will be called every 'speed' milliseconds.
+  If InstallInt returns False, there are too many installed timers.
+  speed must be divisible by 10, the maximum speed should be 10 milliseconds.
+  In DOS the timer procedure will be called from an interrupt handler,
+  so don't do any low-level stuff.
+  (since Update might require bankswitching don't call it!)
+  Your timer function should return the content of 'interval'
+  (eg. result:=interval)
+  (the stupid syntax of the timer function is because of SDL compatibility)
+
+function GetTicks:longint;
+  Get the number of elapsed 55 millisecond ticks since
+    - wdosx: CPU reset (the value at $0040:$006C)
+    - win32: initialization of SDL (AGInit)
+
+procedure AGDelay(ms:integer);
+  Waits for the specified amount of milliseconds.
+
+function GetClosestColor(var pal:vgapalette;red,green,blue:byte):byte;
+  Finds the closest color from the given palette to the given RGB values.
+
+function GetFurthestColor(var pal:vgapalette;red,green,blue:byte):byte;
+  Finds the furthest color from the given palette to the given RGB values.
+
+procedure gclrscr(var srf:tsurface;color:longint);
+  Clears the given surface to the specified color.
+
+procedure PutPixel(var dest:TSurface;x,y:integer;color:longint);
+function GetPixel(var src:TSurface;x,y:integer):longint;
+  Draw/Get a pixel at the specified position on the given surface.
+  x,y must be in range (0,0),(surface.w-1,surface.h-1)
+
+procedure hline(var dest:TSurface;x1,y,x2:integer;color:longint);
+procedure vline(var dest:TSurface;x,y1,y2:integer;color:longint);
+  Draw a horizontal/vertical line on the given surface with the specified
+  color. The coordinates must be in range (0,0),(surface.w-1,surface.h-1) or
+  else only a part of the line will be drawn.
+
+procedure DrawLine(var dest:TSurface;x1,y1,x2,y2:integer;color:longint);
+procedure DrawCircle(var dest:TSurface;xc,yc,r:integer;color:longint);
+  Draw a line/circle. In DrawCircle xc and yc are the center coordinates and
+  r is the radius.
+
+procedure DrawRectangle(var dest:TSurface;x1,y1,x2,y2:integer;color:longint);
+procedure DrawFilledRectangle(var dest:TSurface;x1,y1,x2,y2:integer;
+ color:longint);
+  Draw a rectangle, DrawFilledRectangle also filles it with the given color.
+
+procedure DrawBox(var dest:TSurface;x1,y1,x2,y2:integer;f1c,f2c,bc,t:longint);
+  Draws a box on the specified surface.
+  't' specified the type: 0->single, 1->double
+  f1c,f2c,bc are the colors to draw with.
+
+function LoadPCX8(filename:string;var destpal:vgapalette):TSurface;overload;
+function LoadPCX8(filename:string):TSurface;overload;
+function SavePCX8(filename:string;var src:TSurface;var srcpal:vgapalette;
+ x1,y1,x2,y2:integer):boolean;
+function LoadBMP8(filename:string;var destpal:vgapalette):TSurface;overload;
+function LoadBMP8(filename:string):TSurface;overload;
+function SaveBMP8(filename:string;var src:TSurface;var srcpal:vgapalette;
+ x1,y1,x2,y2:integer):boolean;
+  Load/save BMP/PCX images
+  LoadXXX returns a new surface which stores the image
+  If result.w and result.h are 0, there was an error
+  Only uncompressed BMPs and 256 color PCXs are supported!
+  SaveBMP8 and SavePCX8 only work in 256 color modes.
+  LoadBMP8 and LoadPCX8 work in 16 and 32 bpp modes too (in these modes use
+  the version without 'destpal' parameter since you don't need the palette in
+  such video modes)
+
+function LoadBMP24(filename:string):TSurface;
+function SaveBMP24(filename:string;var src:TSurface;x1,y1,x2,y2:integer)
+ :boolean;overload;
+function SaveBMP24(filename:string;var src:TSurface;x1,y1,x2,y2:integer;
+ var srcpal:vgapalette):boolean;overload;
+  Same as loadbmp8/savebmp8, but these only work in >8bpp modes with 24bpp
+  bmp files. Of course the bitmap data will be converted to the current color
+  depth. Beginning from version 0.99 SaveBMP24 also works in 256 color modes.
+  (in this case use the version that has a 'srcpal' parameter)
+
+function LoadGrs(filename:string;var grs:TGrs):boolean;
+procedure UnloadGrs(var grs:TGrs);
+function SaveGrs(filename:string;var grs:TGrs):boolean;
+type
+  TGrs=record
+    is8bpp:boolean; => True=8bpp, False=24bpp
+    n:integer;      => number of images
+    w,h:array of integer; => width and height (1..n)
+    pal:vgapalette;       => palette (simply call SetPal(grs.pal))
+    img:array of TSurface;=> the images themselves (1..n)
+  end;
+  You can load/save GRS files with these 3 functions. Since a GRS file can
+  only contain 8 or 24 bpp images, grs.img[] is converted when needed.
+  Return value is False if something was wrong.
+  UnloadGrs unloads the images.
+  Now you may ask:
+    'But what is a GRS file?'
+  The answer:
+    Files having the .GRS extensions are created by my stupid and unusable
+    graphics editor (GrsEd). They contain several images in 8 or 24 bits-per-
+    pixel format (and of course a palette if needed). The Win32 version of
+    grsed is available on the ftp site (ftp.dwp42.org) in the bazaar/ag/tools
+    folder. Unfortunately it supports 256 color GRS files only.
+
+procedure DrawChar(var dest:TSurface;var fnt;x,y:integer;ch:char;fc,bc:longint;
+ ovr:boolean;cxsiz,cysiz:byte);
+procedure DrawStr(var dest:TSurface;var fnt;x,y:integer;s:string;fc,bc:longint;
+ ovr:boolean;cxsiz,cysiz:byte);
+  Draw a character/string to the specified surface
+  'fnt' must be a BIOS format font. Width and height are not limited. (so the
+  size of the font can be anything, not just 8x8 or 8x16, but of course if
+  the width and height is not divisible by 8, some bits will be unused)
+  fc,bc: foreground/background color
+  ovr: if this is True, transparent pixels in the font will be filled be with
+  the background or else background color won't be used
+  cxsiz,cysiz: font width/height
+  Warning: these functions are slow!
+  For True Type Font support download the ag_ttf package from the alpgraph
+  homepage.
+
+procedure DrawStr8x16Ovr(dest:pointer;var fnt;x,y,w:integer;const s:shortstring;
+ fc,bc:longint);
+ Like DrawStr(srf.p,fnt,x,y,s,fc,bc,true,8,16), but it it much faster, works
+ with 8x16 fonts only and will crash your program if you try to draw outside
+ the surface. The 'dest' parameter is a pointer to the surface data, eg. the
+ result of Lock. 'w' must be the number of bytes per pixel, the pitch of the
+ locked surface.
+ NOTE: there are three versions of this functions:
+   DrawStr8x16Ovr8 for 8 bpp, DrawStr8x16Ovr16 for 16 bpp and DrawStr8x16Ovr32
+   for 32 bpp modes. But you only need to use DrawStr8x16Ovr (since it is a
+   function pointer and is set by AGInit)
+ (feel free to create your own version of this routine, eg. for non-8x16 fonts,
+ for transparent output, etc.)
+
+procedure ShowMouse;
+procedure HideMouse;
+  Show/hide the mouse cursor
+  NOTE: AGInit initializes the mouse, sets ag_mouseok, and HIDES the mouse
+  cursor. Update automaticaly hides/restores mouse cursor if it's visible.
+
+procedure SetMouseCursor(newdata,newmask:pointer);
+  The two parameters are pointers to a 32 byte long array of bytes.
+  Mouse cursor can be only 16x16 at the moment.
+  For more info on the format of cursors see the SDL documentation/headers.
+  Call SetMouseCursor(nil,nil) to restore the default mouse cursor.
+
+function PlayFLI(filename:string;x1,y1,x2,y2,sx,sy:integer;loop:boolean;
+ maxloop:integer):boolean;
+  This will only work in 256 color (8bpp) modes!
+  Plays a 320x200 sized FLI file.
+  x1,y1,x2,y2 specify the shown area of the animation. Of course the maximum
+  (and normal) size is 0,0,319,199.
+  sx,sy specify the position of the animation on the screen (only if you are
+  using >320x200 video mode).
+  If 'loop' is True, the animation will be repeated until a key is pressed or
+  it has been played 'maxloop' times. maxloop=$FFFF means infinite looping.
+
+procedure SetFileFuncs(var newff:TFileFuncs);
+function GetFileFuncs:TFileFuncs;
+  These functions set/get (the address of) the currently set file handling
+  routines, which are used for reading files. So in functions like LoadPCX8
+  you can use your own functions for file input instead of using real files.
+  (for example you can use one big resource file or simulate files in memory)
+
+  TFileFuncs=record
+    open:function(fn:string):longint;
+    This should open a file and return 0 if there was an error or else the
+    handle of the newly opened file.
+
+    close:procedure(f:longint);
+    This should close the file with the given handle.
+
+    read:function(f:longint;var dest;count:longint):longint;
+    This should read count bytes from f to dest and return the number of read
+    bytes.
+
+    seek:function(f,newpos,o:longint):longint;
+    Should seek in f to newpos and return the new position in bytes from the
+    beginning of the file.
+    o=0 means seeking from the beginning of the file
+    o=1 means seeking from current position
+    o=2 means seeking from end of file (in this case newpos will be negative)
+  end;
+
+ procedure ff_readn(f:longint;var dest;count:longint;var numread:longint);
+  Same as numread:=ff.read(f,dest,count);
+
+  To restore the default file handling, use SetFileFuncs(default_ff)
+
+  The following procedures/functions use this type of file handling:
+    - LoadPCX8
+    - LoadBMP8
+    - LoadBMP24
+    - LoadGRS
+    - PlayFLI
+
+==============================================================================
+
+Known bugs:
+***********
+  - under Windows NT/2K, the mouse with the DOS version in VBE modes won't
+    work correctly, since you won't be able to move the mouse outside of about
+    the upper half of the screen. (bug with int33h under NT)
+  - the win32 version of RKey will stop repeating if a key was pressed, then
+    another was pressed, and later the first one was released.
+
+TODO & future plans:
+********************
+  - Update, Blit, drawing the mouse cursor in WDOSX version are SLOW!!!
+  - fix ag_sdl.rkey
+  - we should use WDosInterrupts instead pmirq.wdl for irq0 (int08) handling,
+    but WDosInterrupts causes crashes and there is no problem with pmirq.wdl
+  - I know that noone needs double-buffered modes, but that's the only way
+    to prevent flickering (by waiting for vertical retrace) with SDL
+  - VBE 3.0 support for WDOSX version (ability to change the refresh rate?)
+  - why not use our own mouse cursor drawing code with SDL too?
+  - rewrite the documentation :-)
+
+Tutorial:
+*********
+  1) Setting video mode
+
+  Most important of all: never forget to include 'ag_wdosx' or 'ag_sdl'
+  in your main module, or else a nice crash will occur. (of course you also
+  need the unit 'alpgraph')
+  Note that since version 1.1.1 AGInit in unit alpgraph checks if ag_wdosx or
+  ag_sdl was included, and halts the program if it was not found.
+
+  At the start of your program you must call AGInit and in the end AGDone.
+
+  First example:
+  program nothing;
+  uses alpgraph,ag_sdl;
+  begin
+    if not AGInit(640,480,8,'do-nothing-example',false,false) then begin
+      writeln('video mode setting (or something else) failed');
+      readln;
+      halt;
+    end;
+    AGDone;
+  end.
+
+  This little example sets a 640x480 256 color video mode. The last three
+  parameters specify that it will run in a window, the caption of that window
+  will be 'do-nothing-example', and use no double buffering. Double buffering
+  is only available in full screen modes. If you set the double-buffering flag,
+  but it is not available (eg. you are setting a windowed mode) it will be
+  ignored, use the vid_dblbuf variable to detect which mode was set.
+  If the last three parameters are missing they will be defaulted to 'ag_app',
+  true,false. (full screen & no double buffering)
+  AGDone simply closes the window (or switches back to text mode in full
+  screen modes). Don't forget to compile your alpgraph programs as a console
+  application! (use -cc on the command line or insert {$apptype console} to
+  the beginning of your main source module)
+
+  2) Screen refresh modes
+
+  The difference between double buffered and normal screen handling is when
+  using a double buffered mode, you can't update a given area of the screen,
+  only the entire screen. Before starting to draw the video card will also wait
+  for a vertical retrace to prevent flickering and then a SWAP will occur,
+  so the content of the 'screen' surface is displayed and the previous content
+  of the display will be copied to 'screen'.
+  The disadvantage of this is if you need to refresh only a part of the screen,
+  you have to refresh the whole screen and it will always wait for the vertical
+  retrace. But if you don't use doublebuffering you won't be able to wait for
+  vertical retrace because SDL doesn't allow you to do it separately. (and
+  without it flickering may occour)
+  And note: the mouse cursor is not displayed in double-buffered video modes
+  (in the Win32 version).
+  The WDOSX version ignores the double-buffering flag of AGInit, you can
+  wait for a vertical retrace separately too.
+  Conclusion: only use double-buffered modes when you will redraw the entire
+  screen after each Update call (eg. games).
+
+  You can draw into buffers which are called surfaces. One surface is always
+  available, the 'screen' surface. What you draw on this, will be shown on
+  the screen when calling Update. The parameters of Update specify a rectangle,
+  only this area will be refreshed on the screen. 0,0,0,0 means the entire
+  screen. If double buffering is enabled, Update will ignore its parameters
+  and will also wait for a vertical retrace to prevent flickering.
+
+  Second example: (draws a yellow filled rectangle and waits for a key)
+  program draw1;
+  uses alpgraph,ag_sdl;
+  begin
+    AGInit(640,480,8,'demo1',false,false);
+    DrawFilledRectangle(screen,5,5,100,100,14);
+    Update(0,0,0,0); //refresh the entire screen
+    RKey;
+    AGDone;
+  end.
+
+  3) Waiting for a key and your main loop
+
+  RKey is something like ReadKey in the Crt unit of Turbo Pascal. But to
+  indicate that the returned code is a scancode it uses a boolean variable
+  named 'rk_schar' instead of returning #0. If rk_schar is True, the code
+  returned by last RKey was a scancode, if False, it was a normal ASCII code.
+  Note that in the Win32 version some special key-combinations which are
+  available in DOS might not be recognized.
+
+  RKey will autmatically call Idle, which is the core of lots of things.
+  You should call Idle periodically (from your main loop), or else some things
+  will stop working.
+  So your main loop should look like this:
+  repeat
+    ...
+    idle;
+  until (user_wants_to_quit) or (mustquit);
+  The mustquit variable will be True when the user pressed the close button
+  of the window (of course it will be always False in DOS and in full screen
+  modes). Idle processes SDL events, handles the timer, moves mouse cursor in
+  DOS version, updates keyboard in Win32, etc.
+
+  4) More keyboard handling
+
+  As we saw, RKey works almost the same as ReadKey in Turbo Pascal. Since
+  alpgraph is used in console programs, you can still use readln.
+  GetShiftStates returns a byte, which indicates which of shift, control, alt
+  is down. (constants for checking its bits are SHIFT_SHIFT, SHIFT_ALT and
+  SHIFT_CTRL)
+  If you want to check by scancode if a key is down, use the keydown array.
+  keydown[index] is True if the key, whose scancode is 'index' is down.
+  (Note that since in DOS we set our own keyboard handler but the old one
+  is also called, Idle flushes the BIOS keyboard buffer to prevent beeping)
+  Since in Win32 Idle updates the keyboard, if you don't call it enough times,
+  the content of the keydown array won't be updated fast enough.
+
+  5) Palettes (applies only to 8 bpp modes)
+
+  The 256 color modes are palettized modes, the RGB components in the palette
+  must be in range 0..63. (only 6 bits are used, so in normal DOS programs if
+  you specify a number higher than 63, the 6. and 7. bits are ignored by the
+  VGA card. When using alpgraph be sure to use only values in that range!)
+  The vgapalette record is 768 bytes long, it contains the RGB components for
+  256 colors. Use SetPal to set this, or SetColor to set only one color in
+  the current palette.
+  The following only applies to the Win32 version:
+  Since with SDL every surface will have its own palette, if you blit two
+  surfaces having different palettes, the colors of one of them will be messed
+  up. Use _SetPal to set the given palette to the given surface. (eg. LoadPCX
+  and LoadBMP will set the palette of the image for the newly created surface)
+
+  For example:
+  ...
+  SetColor(20,0,0,63);
+  PutPixel(screen,5,5,20);
+  Update(5,5,5,5);
+  RKey;
+  SetColor(20,63,0,0);
+  ...
+  This code will display a blue pixel at 5,5 and wait for a key to be pressed.
+  Then the pixel at 5,5 will be changed to a red one. (calling Update is not
+  needed there)
+
+  SetPal(pal_vga) sets the default VGA palette (this is automatically done by
+  AGInit). There is another 256 color palette in alpgraph, pal_dn, in which
+  the first 16 colors are the same as in pal_vga.
+
+  6) Some stupid drawing functions
+
+  WritePixel : puts a pixel at the given position with the given color
+  GetPixel : returns the color of the given pixel
+  DrawLine : draws a line
+  DrawCircle : draws a circle with the given center point and radius
+  DrawRectangle : draws a rectangle with the given color
+  DrawFilledRectangle : draws a filled rectangle
+  hline : draw a horizontal line
+  vline : draw a vertical line
+
+  These functions support clipping, so they won't crash if you draw outside
+  the surface, in this case only a part of the shape will be drawn.
+  If the surface isn't locked, they will lock it, but since recursive locks
+  are supported, if you know that you will draw a lot, you can lock it and
+  only unlock it when you are finished calling a set of these functions.
+  (this way it will be faster since it doesn't lock again and again)
+
+  7) Blitting
+  
+  This is very easy. With blit and blit_force_notrans you can copy a
+  rectangular area from one surface to another. When creating a surface you
+  can specify a transparent color for it, which means that pixels on this
+  surface having this color won't be copied to the destination surface when
+  doing a blit. blit_force_notrans ignores this and copies everything, but it
+  is slower. Note that if you specify bad coordinates (outside the surface)
+  the DOS version will crash, while SDL supports clipping when blitting too.
+  Syntax:
+    blit(source,destination,x1,y1,x2,y2,destination_x,destination_y)
+    where
+    x1,y1,x2,y2 specify a rectangle on the 'source' surface
+    dest_x,dest_y will be the upper-left corner of the area, where the
+    given part will be copied
+  Example:
+  var s:TSurface;
+  ...
+  s:=LoadBMP24('acdc.bmp');
+  blit(s,screen,0,0,s.w-1,s.h-1,0,0);
+  Update(0,0,0,0);
+  RKey;
+  RmSurface(s);
+  ...
+
+  8) Accessing surfaces directly & refreshing the screen
+
+  p:=Lock(surface) gives a pointer to the surface data (the pointer will be p)
+  Unlock(surface) must be called when you are finished with drawing
+  (after this 'p' won't be a valid pointer)
+  WARNING: The length of a line in the surface data doesn't always equal to
+  the width of the surface! Use surface.pitch to get the real scanline length.
+  For example instead of writing p^[x+y*surface.w]:=15 you should write
+  p^[x+y*surface.pitch]:=15
+
+  OR
+
+  you can use PutSurfaceData and GetSurfaceData. These functions lock the
+  surfaces and copy the data from it to the specified destination. They
+  support color conversion too (by calling the _XX_to_XX routines).
+  Example: (assumes 8 bpp video mode)
+  var s:TSurface;p:pointer;
+  ...
+  GetMem(p,s.w*s.h);
+  GetSurfaceData(s,p,8,s.w);
+  FillChar(p^,s.w*s.h,0);
+  PutSurfaceData(s,p,8,s.w);
+  FreeMem(p);
+  ... {this simply clears s to color 0}
+  Of course this way the whole content of the surface is copied twice, so
+  use Lock if you want to modify a smaller part of the image. Note that the
+  last parameter of both procedures specifies the pitch of the source or
+  destination buffer, it must be given in bytes, not pixels!
+
+  To refresh the screen (copy the content of the 'screen' surface to the
+  display) call Update. If you are in non-doublebuffering mode, the four
+  parameters specify a rectangular area to refresh. If they are all zeroes,
+  the entire screen will be redrawn. The 'screen' surface must be unlocked
+  when calling Update! There is also a PUpdate procedure which always preserves
+  the content of the 'screen' surface, the code that uses this will work
+  either without double-buffering or with it.
+  Be careful: as I said before, refresh in double-buffered modes means swap,
+  the content of 'screen' is altered (Win32 only).
+
+  9) Mouse support
+
+  'ag_mouseok' after AGInit is True if a mouse is available. The mouse cursor
+  will be hidden after AGInit, you must show it with ShowMouse. Use HideMouse
+  to hide it again. Hiding the cursor before calling Update is not needed!
+  The ag_mousex and ag_mousey variables hold the actual mouse position (in pixels).
+  Bit 0 of ag_mouseb is 1 if the left button is pressed.
+  Bit 1 is 1 if the middle button is pressed.
+  Bit 2 is 1 if the right button is pressed.
+  You can determine if the cursor is visible with the 'ag_mousevisible' variable.
+  Note! In the DOS version if you change the palette in 8 bpp modes, the
+  colors of the mouse cursor might be changed too. The two used colors will
+  be always the closest colors to 63,63,63 (white) and 0,0,0 (black).
+
+  10) Timers
+
+  Call InstallInt(proc,time) to install a timer.
+  When you don't need it anymore use RemoveInt(proc) to disable it.
+  'time' means that 'proc' will be called every 'time' milliseconds.
+  'time' must be divisible by ten!
+  Don't call any interrupts, etc. from your timer procedure.
+  (so calling Update is not a good idea, since the bankswitched video modes
+  might require calling int10h)
+  (Win32: the timer function might be called from a different thread (?))
+  Normally you should only change a flag to signal that the specified amount
+  of time has passed, and the periodic task is done in your main loop if this
+  flag is set.
+
+  Example:
+  var timerflag:boolean;
+  function timerfunc(interval:longint;param:pointer):longint;cdecl;
+  begin
+    timerflag:=true;
+    result:=interval;
+  end;
+  begin
+    ...
+    timerflag:=false;
+    installint(timerfunc,100); //call timerfunc every 100 milliseconds
+    repeat
+      if timerflag then begin
+        ... //process some periodic (every 100 ms) tasks
+        timerflag:=false;
+      end;
+    until ...
+    removeint(timerfunc);
+    ...
+  end;
+
+  11) Color depth conversion
+
+  This section is here to clear things up a bit.
+  The usage of _XX_to_XX routines is quite obvious.
+  GetSurfaceData and PutSurfaceData: only that version supports converting
+  FROM 8-bit, that has a palette parameter too.
+  Conversions supported by PutSurfaceData(surface,src,sbpp,spitch):
+    * 24 -> 16
+    * 24 -> 32
+    * 32 -> 16
+    * 16 -> 32
+  Conversions supported by PutSurfaceData(surface,src,sbpp,spitch,pal):
+    * what it supports without 'pal' (pal is ignored)
+    * 8 -> 16
+    * 8 -> 32
+  Conversions supported by GetSurfaceData(surface,dest,dbpp,dpitch):
+    * 16 -> 24
+    * 32 -> 24
+    * 32 -> 16
+    * 16 -> 32
+  Conversions supported by GetSurfaceData(surface,dest,dbpp,dpitch,pal):
+    * what it supports without 'pal' (pal is ignored)
+    * 8 -> 16
+    * 8 -> 24
+    * 8 -> 32
+  LoadBMP8: works in all video modes (8/16/32)
+  SaveBMP8: only works in 8 bpp modes
+  LoadBMP24: only works in 16/32 bpp modes
+  SaveBMP24: works in all modes (8/16/32)
+  LoadPCX8: works in all video modes (8/16/32)
+  SavePCX8: only works in 8 bpp modes
+  LoadGRS: 24 bpp GRS files: 16/32 bpp modes, 8 bpp GRS files: all modes
+
+Other alpgraph related things at dwp42
+**************************************
+On the alpgraph home page you will find an ag_ttf package. By using it you can
+display text with true type fonts in alpgraph programs. (note that I wrote very
+little part of the source in ag_ttf.zip)
+
+Some demo programs can be found in ag_ex.zip.
+
+GRSED (version 3.02 at the moment) is also available on the web site.
+
+A quite untested GIF87 loader is available as ag_gif.zip.
+
+Since the WDOSX version speeds up the timer, the 'sound' unit of the SB package
+(which is on the Code Snippets page at www.dwp42.org/bazaar/snippets) does not
+work if you use it together with alpgraph (sound.pas can also be found on the
+Wave Player project page in WaveLoader.zip). There is an ag_sb.zip on the
+alpgraph page which contains an alpgraph-compatible version of this unit.
+NOTE: Immo's wave player component is also incompatible with alpgraph, like
+everything else which reprogrammes the system timer to run at a different
+speed.
+
+There is no link on the web page, but the SDL development packages for Win32
+(Visual C++6 / C++Builder) and Linux (in RPM packages) are also available
+at ftp://ftp.dwp42.org/pub/bazaar/ag/sdl.
+
+Beginning from version 1.5.0, there is also a binary distribution, which
+contains the compiled units for Delphi 5 and 6 (no Linux bins yet) and the
+needed header and object files (generated by D5) for C++Builder 5 (this can be
+useful if you want to develop with BCB5 but you only have D4 or 6).
+
+- End of alpgraph.txt -
